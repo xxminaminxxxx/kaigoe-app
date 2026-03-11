@@ -23,19 +23,19 @@ with st.sidebar:
 
 # --- 4. メインUI ---
 st.title("👵 KAIGOE：親友AI")
-st.write("マイクボタンを押して話しかけてください。")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": f"あなたは利用者の親友です。以下の背景を持つ相手に優しく、回想法を交えて話して：{user_bio}"}]
 
-# 履歴表示
+# 会話のログを先に表示
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-# --- 5. 音声入力（マイクボタン） ---
+# --- 5. 音声入力ボタンを「一番下」に配置 ---
 st.divider()
+st.write("👇 ボタンを押して話しかけてください")
 audio_data = mic_recorder(
     start_prompt="🔴 声で話しかける（クリックして開始）",
     stop_prompt="⏹️ 話し終わったらクリック",
@@ -46,31 +46,31 @@ audio_data = mic_recorder(
 # 音声が入力された時の処理
 if audio_data:
     with st.spinner("あなたの声を聴いています..."):
-        # 音声データを一時ファイルとして保存
         audio_bytes = audio_data['bytes']
         with open("temp_audio.mp3", "wb") as f:
             f.write(audio_bytes)
         
-        # Whisper APIで文字起こし
         with open("temp_audio.mp3", "rb") as f:
             transcript = client.audio.transcriptions.create(model="whisper-1", file=f)
             user_input = transcript.text
 
-    # ユーザーの発言を表示
+    # 履歴に追加して即座に画面を更新
     st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.write(user_input)
-
+    
     # AIの返答生成
-    with st.chat_message("assistant"):
-        response = client.chat.completions.create(model="gpt-4o", messages=st.session_state.messages)
-        msg = response.choices[0].message.content
-        st.write(msg)
-        
-        # AIの声を作成
-        audio_response = client.audio.speech.create(model="tts-1", voice="shimmer", input=msg)
-        b64 = base64.b64encode(audio_response.content).decode()
-        audio_html = f'<audio src="data:audio/mp3;base64,{b64}" autoplay controls style="width: 100%;"></audio>'
-        st.markdown(audio_html, unsafe_allow_html=True)
-        
+    response = client.chat.completions.create(model="gpt-4o", messages=st.session_state.messages)
+    msg = response.choices[0].message.content
     st.session_state.messages.append({"role": "assistant", "content": msg})
+    
+    # 音声生成
+    audio_response = client.audio.speech.create(model="tts-1", voice="shimmer", input=msg)
+    b64 = base64.b64encode(audio_response.content).decode()
+    
+    # ページを再起動して最新の会話と音声プレーヤーを表示
+    st.rerun()
+
+# 一番新しい返答に音声プレーヤーを付ける（自動再生用）
+if st.session_state.messages[-1]["role"] == "assistant":
+    # 再生が終わった後に何度も鳴らないよう、最新のメッセージの時だけプレーヤーを出す
+    audio_html = f'<audio src="data:audio/mp3;base64,{b64}" autoplay controls style="width: 100%; margin-top: 10px;"></audio>'
+    st.markdown(audio_html, unsafe_allow_html=True)
