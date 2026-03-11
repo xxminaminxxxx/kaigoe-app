@@ -14,7 +14,7 @@ else:
 
 client = OpenAI(api_key=api_key)
 
-# --- 3. サイドバー ---
+# --- 3. サイドバー設定 ---
 with st.sidebar:
     st.title("💡 デモ設定")
     user_bio = st.text_area("自分史設定", 
@@ -23,7 +23,7 @@ with st.sidebar:
 
 # --- 4. メインUI ---
 st.title("👵 KAIGOE：親友AI")
-st.write("マイクボタンを押して話しかけてください")
+st.write("マイクボタンを押して話しかけてください。")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": f"あなたは利用者の親友です。以下の背景を持つ相手に優しく、回想法を交えて話して：{user_bio}"}]
@@ -35,7 +35,7 @@ for message in st.session_state.messages:
             st.write(message["content"])
 
 # --- 5. 音声入力（マイクボタン） ---
-st.write("---")
+st.divider()
 audio_data = mic_recorder(
     start_prompt="🔴 声で話しかける（クリックして開始）",
     stop_prompt="⏹️ 話し終わったらクリック",
@@ -45,19 +45,18 @@ audio_data = mic_recorder(
 
 # 音声が入力された時の処理
 if audio_data:
-    # 録音されたデータをOpenAIで文字起こし
     with st.spinner("あなたの声を聴いています..."):
-        # 音声ファイルを一時的に作成
+        # 音声データを一時ファイルとして保存
         audio_bytes = audio_data['bytes']
         with open("temp_audio.mp3", "wb") as f:
             f.write(audio_bytes)
         
-        # 文字起こし (Whisper API)
+        # Whisper APIで文字起こし
         with open("temp_audio.mp3", "rb") as f:
             transcript = client.audio.transcriptions.create(model="whisper-1", file=f)
             user_input = transcript.text
 
-    # 文字起こし結果をチャットに反映
+    # ユーザーの発言を表示
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.write(user_input)
@@ -68,7 +67,7 @@ if audio_data:
         msg = response.choices[0].message.content
         st.write(msg)
         
-        # 音声生成
+        # AIの声を作成
         audio_response = client.audio.speech.create(model="tts-1", voice="shimmer", input=msg)
         b64 = base64.b64encode(audio_response.content).decode()
         audio_html = f'<audio src="data:audio/mp3;base64,{b64}" autoplay controls style="width: 100%;"></audio>'
