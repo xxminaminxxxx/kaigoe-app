@@ -27,13 +27,17 @@ st.title("👵 KAIGOE：親友AI")
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": f"あなたは利用者の親友です。以下の背景を持つ相手に優しく、回想法を交えて話して：{user_bio}"}]
 
-# 会話のログを表示
-for message in st.session_state.messages:
+# 会話のログを表示（最新の返答までを先に出す）
+for i, message in enumerate(st.session_state.messages):
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.write(message["content"])
+            # AIの最新の返答のすぐ下に、音声プレーヤーを表示する
+            if i == len(st.session_state.messages) - 1 and message["role"] == "assistant" and "last_audio_b64" in st.session_state:
+                audio_html = f'<audio src="data:audio/mp3;base64,{st.session_state.last_audio_b64}" autoplay controls style="width: 100%; margin-top: 10px;"></audio>'
+                st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- 5. 音声入力ボタンを「一番下」に配置 ---
+# --- 5. 音声入力ボタン（常に画面の最下部） ---
 st.divider()
 st.write("👇 ボタンを押して話しかけてください")
 audio_data = mic_recorder(
@@ -65,13 +69,6 @@ if audio_data:
     audio_response = client.audio.speech.create(model="tts-1", voice="shimmer", input=msg)
     b64 = base64.b64encode(audio_response.content).decode()
     
-    # セッションに音声データを一時保存
+    # 音声データを保存して画面更新
     st.session_state.last_audio_b64 = b64
     st.rerun()
-
-# 【修正ポイント】音声データが存在する場合のみ、プレーヤーを表示して再生する
-if "last_audio_b64" in st.session_state:
-    audio_html = f'<audio src="data:audio/mp3;base64,{st.session_state.last_audio_b64}" autoplay controls style="width: 100%; margin-top: 10px;"></audio>'
-    st.markdown(audio_html, unsafe_allow_html=True)
-    # 再生用タグを出した後は、次回の更新で二重に鳴らないようデータを消しておく
-    del st.session_state.last_audio_b64
